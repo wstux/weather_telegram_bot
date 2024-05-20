@@ -26,5 +26,5 @@ sudo sh ./weather_telegram_bot_installer.sh --uninstall
 
 ## Dependencies
 
-The bot requires python3 and python package 'pytelegrambotapi'.
+The bot requires `python3` and python package `pytelegrambotapi`.
 
