@@ -37,6 +37,26 @@ def get_current_weather(city):
     except Exception as e:
         return f"Exception (weather): {e}"
 
+def get_current_weather_by_location(latitude, longitude):
+    try:
+        res = requests.get("https://api.openweathermap.org/data/2.5/weather",
+                           params={'lat': latitude,
+                                   'lon': longitude,
+                                   'units': 'metric',
+                                   'lang': 'ru',
+                                   'appid': f'{OPEN_WEATHER_APPIP}'}
+                          )
+        data = res.json()
+        rc = data['cod']
+        if rc != 200 and rc != '200':
+            return f"Invalid request. Reason: {data['message']}"
+        location = data['name']
+        temp = data['main']['temp']
+        description = data['weather'][0]['description']
+        return f"Location: {location}\nWeather: {temp}°, {description}"
+    except Exception as e:
+        return f"Exception (weather): {e}"
+
 def get_log_level(ll_str):
     if ll_str == 'debug':
         return logging.DEBUG
@@ -48,7 +68,15 @@ def get_log_level(ll_str):
         return logging.ERROR
     return logging.WARNING
 
-def weather_request(message):
+def request_location(message):
+    logging.info(f"Request weather by location from user '{message.from_user.id}'")
+    #keyboard = telebot.types.InlineKeyboardMarkup()
+    keyboard = telebot.types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True, one_time_keyboard=True)
+    key_location = telebot.types.KeyboardButton(text="send location", request_location=True)
+    keyboard.add(key_location)
+    bot.send_message(message.from_user.id, text="get your location", reply_markup=keyboard)
+
+def request_weather(message):
     city = get_city(message.text)
     logging.info(f"Request weather for city '{city}' from user '{message.from_user.id}'")
     keyboard = telebot.types.InlineKeyboardMarkup()
@@ -63,10 +91,19 @@ def weather_request(message):
 
 @bot.message_handler(content_types=['text'])
 def start(message):
-    if message.text.startswith('/weather') or message.text.startswith('/погода'):
-        weather_request(message)
+    if message.text == '/weather' or message.text == '/погода':
+        request_location(message)
+    elif message.text.startswith('/weather') or message.text.startswith('/погода'):
+        request_weather(message)
     else:
         bot.send_message(message.from_user.id, 'Invalid command');
+
+@bot.message_handler(content_types=["location"])
+def location(message):
+    if message.location is not None:
+        logging.info(f"Request weather for latitude {message.location.latitude} and longitude {message.location.longitude} from user '{message.from_user.id}'")
+        weather = get_current_weather_by_location(message.location.latitude, message.location.longitude)
+        bot.send_message(message.from_user.id, weather)
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_worker(call):
