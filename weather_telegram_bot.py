@@ -14,9 +14,9 @@ bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
 def get_city(text):
     if text.startswith('/weather'):
-        return text.replace("/weather ", "")
+        return text.replace("/weather_", "")
     elif text.startswith('/погода'):
-        return text.replace("/погода ", "")
+        return text.replace("/погода_", "")
     return ""
 
 def get_current_weather(city):
@@ -74,7 +74,7 @@ def request_location(message):
     keyboard = telebot.types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True, one_time_keyboard=True)
     key_location = telebot.types.KeyboardButton(text="send location", request_location=True)
     keyboard.add(key_location)
-    bot.send_message(message.from_user.id, text="get your location", reply_markup=keyboard)
+    bot.send_message(message.from_user.id, text="Please, get your location", reply_markup=keyboard)
 
 def request_weather(message):
     city = get_city(message.text)
@@ -83,20 +83,19 @@ def request_weather(message):
     key_current = telebot.types.InlineKeyboardButton(text='current', callback_data="['current','" + city + "']")
     key_today = telebot.types.InlineKeyboardButton(text='today', callback_data="['today','" + city + "']")
     key_tomorrow = telebot.types.InlineKeyboardButton(text='tomorrow', callback_data="['tomorrow','" + city + "']")
-    keyboard.add(key_current)
-    keyboard.add(key_today)
-    keyboard.add(key_tomorrow)
+    keyboard.add(key_current, key_today, key_tomorrow)
     question = 'Please, select period'
     bot.send_message(message.from_user.id, text=question, reply_markup=keyboard)
 
-@bot.message_handler(content_types=['text'])
-def start(message):
-    if message.text == '/weather' or message.text == '/погода':
-        request_location(message)
-    elif message.text.startswith('/weather') or message.text.startswith('/погода'):
-        request_weather(message)
-    else:
-        bot.send_message(message.from_user.id, 'Invalid command');
+# Handles all text messages that contains the commands '/weather' or '/погода'.
+@bot.message_handler(commands=['weather', 'погода'])
+def handle_start_weather(message):
+    request_location(message)
+
+# Handles all text messages that match the regular expression
+@bot.message_handler(regexp="^\/(weather|погода)_.{1,30}")
+def handle_start_city_weather(message):
+    request_weather(message)
 
 @bot.message_handler(content_types=["location"])
 def location(message):
@@ -107,7 +106,7 @@ def location(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_worker(call):
-    logging.info(f"callback_warker: user id '{call.message.chat.id}', call.data '{call.data}'")
+    logging.info(f"callback_worker: user id '{call.message.chat.id}', call.data '{call.data}'")
     try:
         call_type = ast.literal_eval(call.data)[0]
         city = ast.literal_eval(call.data)[1]
@@ -115,14 +114,14 @@ def callback_worker(call):
         if call_type == "current":
             weather = get_current_weather(city)
         elif call_type == "today":
-            weather = "Sorry, this request unsupported now. Current wearher:\n"
+            weather = "Sorry, this request unsupported now. Current weather:\n"
             weather += get_current_weather(city)
         elif call_type == "tomorrow":
-            weather = "Sorry, this request unsupported now. Current wearher:\n"
+            weather = "Sorry, this request unsupported now. Current weather:\n"
             weather += get_current_weather(city)
         bot.send_message(call.message.chat.id, weather)
     except Exception as e:
-        logging.error(f"callback_warker: user id '{call.message.chat.id}', call.data '{call.data}'. Exception: '{e}'")
+        logging.error(f"callback_worker: user id '{call.message.chat.id}', call.data '{call.data}'. Exception: '{e}'")
         pass
 
 
